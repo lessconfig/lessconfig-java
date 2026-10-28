@@ -6,6 +6,22 @@ import org.jspecify.annotations.Nullable;
  * Immutable server invalidation record; it contains no configuration values.
  */
 public final class ConfigChange {
+    /** Identifies a configuration resource in a change record. */
+    public static final String CONFIG_CHANGE_RESOURCE_CONFIG = "config";
+    /** Identifies an environment resource in a change record. */
+    public static final String CONFIG_CHANGE_RESOURCE_ENVIRONMENT = "environment";
+    /** Identifies a project resource in a change record. */
+    public static final String CONFIG_CHANGE_RESOURCE_PROJECT = "project";
+
+    /** Indicates that the resource was created. */
+    public static final String CONFIG_CHANGE_TYPE_CREATED = "created";
+    /** Indicates that the resource was deleted. */
+    public static final String CONFIG_CHANGE_TYPE_DELETED = "deleted";
+    /** Indicates that the resource was updated. */
+    public static final String CONFIG_CHANGE_TYPE_UPDATED = "updated";
+    /** Indicates that the resource was restored. */
+    public static final String CONFIG_CHANGE_TYPE_RESTORED = "restored";
+
     /**
      * Global revision assigned to this event; the watch response can have a later watermark.
      */
@@ -27,12 +43,12 @@ public final class ConfigChange {
     private final String key;
 
     /**
-     * Server resource category: {@code config}, {@code environment} or {@code project}.
+     * Server resource category, represented by a {@code CONFIG_CHANGE_RESOURCE_*} constant.
      */
     private final String resource;
 
     /**
-     * Server operation: {@code created}, {@code updated}, {@code deleted} or {@code restored}.
+     * Server operation, represented by a {@code CONFIG_CHANGE_TYPE_*} constant.
      */
     private final String type;
 
@@ -43,8 +59,8 @@ public final class ConfigChange {
      * @param project     project slug
      * @param environment environment slug, or null for project deletion
      * @param key         configuration key, or null for ancestor deletion
-     * @param resource    server resource name
-     * @param type        server operation name
+     * @param resource    server resource category, one of the {@code CONFIG_CHANGE_RESOURCE_*} constants
+     * @param type        server operation, one of the {@code CONFIG_CHANGE_TYPE_*} constants
      */
     ConfigChange(long revision, String project, @Nullable String environment, @Nullable String key,
                  String resource, String type) {
@@ -93,18 +109,25 @@ public final class ConfigChange {
     }
 
     /**
-     * Returns the server resource name: config, environment or project.
+     * Returns the category of the changed resource.
      *
-     * @return server resource name: config, environment or project
+     * @return one of the {@code CONFIG_CHANGE_RESOURCE_*} constants
+     * @see #CONFIG_CHANGE_RESOURCE_CONFIG
+     * @see #CONFIG_CHANGE_RESOURCE_ENVIRONMENT
+     * @see #CONFIG_CHANGE_RESOURCE_PROJECT
      */
     public String getResource() {
         return resource;
     }
 
     /**
-     * Returns the server operation name: created, updated, deleted or restored.
+     * Returns the operation applied to the resource.
      *
-     * @return server operation name: created, updated, deleted or restored
+     * @return one of the {@code CONFIG_CHANGE_TYPE_*} constants
+     * @see #CONFIG_CHANGE_TYPE_CREATED
+     * @see #CONFIG_CHANGE_TYPE_DELETED
+     * @see #CONFIG_CHANGE_TYPE_UPDATED
+     * @see #CONFIG_CHANGE_TYPE_RESTORED
      */
     public String getType() {
         return type;

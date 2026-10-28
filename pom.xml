@@ -20,6 +20,7 @@
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
         <jspecify.version>1.0.1</jspecify.version>
         <json.version>20260814</json.version>
+        <slf4j.version>2.0.20</slf4j.version>
         <junit-jupiter.version>5.14.4</junit-jupiter.version>
         <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.11.3</maven-javadoc-plugin.version>
@@ -31,7 +32,9 @@
 
     <licenses>
         <license>
-            <name>Apache License 2.0</name>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
 
@@ -48,9 +51,20 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

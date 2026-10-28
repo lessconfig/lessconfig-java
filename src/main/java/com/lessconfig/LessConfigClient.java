@@ -99,7 +99,7 @@ public interface LessConfigClient extends AutoCloseable {
      *
      * @param listener configuration-change listener; never null
      */
-    void addListener(ConfigListener listener);
+    void addConfigListener(ConfigListener listener);
 
     /**
      * Registers a listener and synchronously loads/subscribes the specified key.
@@ -111,7 +111,7 @@ public interface LessConfigClient extends AutoCloseable {
      * @param listener    configuration-change listener; never null
      * @throws LessConfigException if subscription initialization fails, including a missing ancestor
      */
-    void addListener(String project, String environment, String key, ConfigListener listener);
+    void addConfigListener(String project, String environment, String key, ConfigListener listener);
 
     /**
      * Registers a listener and synchronously loads/subscribes the whole environment, including future keys.
@@ -121,7 +121,7 @@ public interface LessConfigClient extends AutoCloseable {
      * @param listener    configuration-change listener; never null
      * @throws LessConfigException if subscription initialization fails
      */
-    void addListener(String project, String environment, ConfigListener listener);
+    void addConfigListener(String project, String environment, ConfigListener listener);
 
     /**
      * Removes every registration of the same listener instance. An in-flight callback may finish.

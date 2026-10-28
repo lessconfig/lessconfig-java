@@ -44,7 +44,7 @@ class LessConfigClientBuilderTest {
         assertThrows(IllegalStateException.class, client::start);
         assertThrows(IllegalStateException.class, client::getProjects);
         assertThrows(IllegalStateException.class, () -> client.getConfig("p", "e", "k"));
-        assertThrows(IllegalStateException.class, () -> client.addListener(changes -> {
+        assertThrows(IllegalStateException.class, () -> client.addConfigListener(changes -> {
         }));
     }
 
@@ -60,7 +60,7 @@ class LessConfigClientBuilderTest {
                 assertThrows(IllegalArgumentException.class, () -> client.getConfig("payment", "prod", key));
             }
             assertTrue(server.requests.isEmpty());
-            assertThrows(NullPointerException.class, () -> client.addListener((ConfigListener) null));
+            assertThrows(NullPointerException.class, () -> client.addConfigListener((ConfigListener) null));
         }
     }
 

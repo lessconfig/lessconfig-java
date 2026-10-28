@@ -2,6 +2,8 @@ package com.lessconfig;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -14,14 +16,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Default implementation with one daemon watcher and an in-memory cache per client.
  */
 public class DefaultLessConfigClient implements LessConfigClient {
-    private static final Logger LOG = Logger.getLogger(DefaultLessConfigClient.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultLessConfigClient.class);
     private final LessConfigApi api;
     private final LessConfigApi watchApi;
     private final Duration readTimeout;
@@ -481,7 +481,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
                 try {
                     listener.onStatusChange(event.status, event.error);
                 } catch (RuntimeException e) {
-                    LOG.log(Level.WARNING, "LessConfig status listener failed", e);
+                    LOG.warn("LessConfig status listener failed", e);
                 }
             }
             if (event.status == WatchStatus.CLOSED) {
@@ -516,7 +516,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
                     try {
                         registration.listener.onChange(Collections.unmodifiableList(matching));
                     } catch (RuntimeException e) {
-                        LOG.log(Level.WARNING, "LessConfig change listener failed", e);
+                        LOG.warn("LessConfig change listener failed", e);
                     }
                 }
             }
@@ -563,7 +563,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
      * {@inheritDoc}
      */
     @Override
-    public void addListener(ConfigListener listener) {
+    public void addConfigListener(ConfigListener listener) {
         add(null, listener);
     }
 
@@ -571,7 +571,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
      * {@inheritDoc}
      */
     @Override
-    public void addListener(String project, String environment, String key, ConfigListener listener) {
+    public void addConfigListener(String project, String environment, String key, ConfigListener listener) {
         Objects.requireNonNull(key, "key");
         add(new ConfigId(project, environment, key), listener);
     }
@@ -580,7 +580,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
      * {@inheritDoc}
      */
     @Override
-    public void addListener(String project, String environment, ConfigListener listener) {
+    public void addConfigListener(String project, String environment, ConfigListener listener) {
         add(new ConfigId(project, environment, null), listener);
     }
 
@@ -688,7 +688,6 @@ public class DefaultLessConfigClient implements LessConfigClient {
         copy.setKey(source.getKey());
         copy.setValue(source.getValue());
         copy.setType(source.getType());
-        copy.setRawType(source.getRawType());
         copy.setDescription(source.getDescription());
         copy.setRevision(source.getRevision());
         return copy;

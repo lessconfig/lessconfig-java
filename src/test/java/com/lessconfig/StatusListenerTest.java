@@ -2,6 +2,7 @@ package com.lessconfig;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -32,7 +33,7 @@ class StatusListenerTest {
             BlockingQueue<WatchStatus> statuses = new LinkedBlockingQueue<>();
             BlockingQueue<LessConfigException> errors = new LinkedBlockingQueue<>();
             AtomicInteger configCallbacks = new AtomicInteger();
-            client.addListener(changes -> configCallbacks.incrementAndGet());
+            client.addConfigListener(changes -> configCallbacks.incrementAndGet());
             client.addStatusListener((status, error) -> {
                 statuses.add(status);
                 if (error != null) {
@@ -83,7 +84,7 @@ class StatusListenerTest {
      * @throws Exception if fixture setup fails
      */
     @Test
-    @ResourceLock("com.lessconfig.DefaultLessConfigClient.logger")
+    @ResourceLock(Resources.SYSTEM_ERR)
     void isolatesFailuresAndRemovesStatusObservers() throws Exception {
         IllegalStateException failure = new IllegalStateException("test observer failure");
         try (ExpectedListenerLog logs = new ExpectedListenerLog(failure);

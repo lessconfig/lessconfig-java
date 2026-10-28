@@ -15,6 +15,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_CONFIG;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_ENVIRONMENT;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_PROJECT;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_CREATED;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_DELETED;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_RESTORED;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_UPDATED;
+
 /**
  * Maps the LessConfig API and validates responses before they can update the cache.
  */
@@ -151,11 +159,14 @@ final class LessConfigApi implements AutoCloseable {
                         : ConfigId.identifier(entry.getString("environment"), "environment");
                 String key = entry.isNull("key") ? null : ConfigId.identifier(entry.getString("key"), "key");
                 if (eventRevision > next || (revision != null && eventRevision <= revision)
-                        || !(resource.equals("config") || resource.equals("environment") || resource.equals("project"))
-                        || !(type.equals("created") || type.equals("updated") || type.equals("deleted") || type.equals("restored"))
-                        || (resource.equals("config") && (environment == null || key == null))
-                        || (resource.equals("environment") && (environment == null || key != null))
-                        || (resource.equals("project") && (environment != null || key != null))) {
+                        || !(CONFIG_CHANGE_RESOURCE_CONFIG.equals(resource)
+                            || CONFIG_CHANGE_RESOURCE_ENVIRONMENT.equals(resource)
+                            || CONFIG_CHANGE_RESOURCE_PROJECT.equals(resource))
+                        || !(CONFIG_CHANGE_TYPE_CREATED.equals(type) || CONFIG_CHANGE_TYPE_UPDATED.equals(type)
+                            || CONFIG_CHANGE_TYPE_DELETED.equals(type) || CONFIG_CHANGE_TYPE_RESTORED.equals(type))
+                        || (CONFIG_CHANGE_RESOURCE_CONFIG.equals(resource) && (environment == null || key == null))
+                        || (CONFIG_CHANGE_RESOURCE_ENVIRONMENT.equals(resource) && (environment == null || key != null))
+                        || (CONFIG_CHANGE_RESOURCE_PROJECT.equals(resource) && (environment != null || key != null))) {
                     throw new JSONException("Invalid watch change");
                 }
                 changes.add(new ConfigChange(eventRevision, project, environment, key, resource, type));
@@ -210,7 +221,7 @@ final class LessConfigApi implements AutoCloseable {
     }
 
     /**
-     * Decodes a configuration, retaining unfamiliar type names as UNKNOWN plus rawType.
+     * Decodes a configuration, preserving the server's type name without enum conversion or normalization.
      *
      * @param json configuration response object
      * @return independent configuration bean
@@ -220,14 +231,7 @@ final class LessConfigApi implements AutoCloseable {
         Config result = new Config();
         result.setKey(json.getString("key"));
         result.setValue(json.getString("value"));
-        result.setRawType(json.getString("type"));
-        result.setType(ConfigType.UNKNOWN);
-        for (ConfigType type : ConfigType.values()) {
-            if (type.name().equalsIgnoreCase(result.getRawType())) {
-                result.setType(type);
-                break;
-            }
-        }
+        result.setType(json.getString("type"));
         result.setDescription(json.getString("description"));
         result.setRevision(revision(json));
         return result;

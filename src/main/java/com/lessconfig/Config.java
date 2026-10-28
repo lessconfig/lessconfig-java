@@ -7,6 +7,19 @@ import java.util.Objects;
  * Client-returned instances are detached copies; changing an instance does not change the client's cache.
  */
 public class Config {
+    /** Configuration format for plain text. */
+    public static final String CONFIG_TYPE_TEXT = "text";
+    /** Configuration format for a boolean value. */
+    public static final String CONFIG_TYPE_BOOLEAN = "boolean";
+    /** Configuration format for a numeric value. */
+    public static final String CONFIG_TYPE_NUMBER = "number";
+    /** Configuration format for JSON content. */
+    public static final String CONFIG_TYPE_JSON = "json";
+    /** Configuration format for YAML content. */
+    public static final String CONFIG_TYPE_YAML = "yaml";
+    /** Configuration format for Java properties content. */
+    public static final String CONFIG_TYPE_PROPERTIES = "properties";
+
     /**
      * Case-sensitive key identifying the configuration within its environment.
      */
@@ -18,14 +31,9 @@ public class Config {
     private String value;
 
     /**
-     * Format recognized by the SDK; UNKNOWN represents an unrecognized server type.
+     * Configuration format exactly as supplied by the server, including unfamiliar type names.
      */
-    private ConfigType type;
-
-    /**
-     * Original server type name, retained even when {@link #type} is UNKNOWN.
-     */
-    private String rawType;
+    private String type;
 
     /**
      * Human-readable configuration description supplied by the server.
@@ -82,42 +90,29 @@ public class Config {
     }
 
     /**
-     * Returns the recognized configuration format.
-     * Inspect {@link #getRawType()} when the server format maps to {@link ConfigType#UNKNOWN}.
+     * Returns the configuration format exactly as supplied by the server.
+     * Known formats have corresponding {@code CONFIG_TYPE_*} constants; unfamiliar names are preserved.
      *
-     * @return configuration format recognized by the SDK
+     * @return original configuration type name
+     * @see #CONFIG_TYPE_TEXT
+     * @see #CONFIG_TYPE_BOOLEAN
+     * @see #CONFIG_TYPE_NUMBER
+     * @see #CONFIG_TYPE_JSON
+     * @see #CONFIG_TYPE_YAML
+     * @see #CONFIG_TYPE_PROPERTIES
      */
-    public ConfigType getType() {
+    public String getType() {
         return type;
     }
 
     /**
-     * Sets the recognized configuration format for this object.
+     * Sets the configuration format without changing its spelling or validating it against known formats.
      *
-     * @param type recognized configuration type, or UNKNOWN; never null
+     * @param type configuration type name; never null
      * @throws NullPointerException if the value is null
      */
-    public void setType(ConfigType type) {
+    public void setType(String type) {
         this.type = Objects.requireNonNull(type, "type");
-    }
-
-    /**
-     * Returns the server type name, including unrecognized future formats.
-     *
-     * @return server type name, including unrecognized future formats
-     */
-    public String getRawType() {
-        return rawType;
-    }
-
-    /**
-     * Sets the original server type name, including formats unknown to this SDK version.
-     *
-     * @param rawType server type name, including unrecognized future formats; never null
-     * @throws NullPointerException if the value is null
-     */
-    public void setRawType(String rawType) {
-        this.rawType = Objects.requireNonNull(rawType, "rawType");
     }
 
     /**

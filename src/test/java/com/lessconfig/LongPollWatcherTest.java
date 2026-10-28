@@ -4,6 +4,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -18,6 +21,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_CONFIG;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_ENVIRONMENT;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_PROJECT;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_CREATED;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_DELETED;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_RESTORED;
+import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_UPDATED;
 import static com.lessconfig.TestServer.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -63,7 +73,7 @@ class LongPollWatcherTest {
     void refreshesCacheBeforeDeliveringImmutableServerBatch() throws Exception {
         BlockingQueue<List<ConfigChange>> batches = new LinkedBlockingQueue<>();
         AtomicReference<String> callbackValue = new AtomicReference<>();
-        client.addListener("payment", "prod", "application.yml", changes -> {
+        client.addConfigListener("payment", "prod", "application.yml", changes -> {
             callbackValue.set(client.getConfig("payment", "prod", "application.yml").getValue());
             batches.add(changes);
         });
@@ -76,8 +86,8 @@ class LongPollWatcherTest {
         assertEquals("payment", change.getProject());
         assertEquals("prod", change.getEnvironment());
         assertEquals("application.yml", change.getKey());
-        assertEquals("updated", change.getType());
-        assertEquals("config", change.getResource());
+        assertEquals(CONFIG_CHANGE_TYPE_UPDATED, change.getType());
+        assertEquals(CONFIG_CHANGE_RESOURCE_CONFIG, change.getResource());
         assertEquals(2, change.getRevision());
         assertThrows(UnsupportedOperationException.class, changes::clear);
         await(() -> server.requests.stream().anyMatch(r -> Long.valueOf(2).equals(r.revision)));
@@ -91,19 +101,19 @@ class LongPollWatcherTest {
     @Test
     void watchesInitiallyMissingKeysAndHandlesDeleteAndRestore() throws Exception {
         BlockingQueue<ConfigChange> events = new LinkedBlockingQueue<>();
-        client.addListener("payment", "prod", "future", changes -> events.addAll(changes));
+        client.addConfigListener("payment", "prod", "future", changes -> events.addAll(changes));
         assertNull(client.getConfig("payment", "prod", "future"));
         int reads = server.reads.get();
         assertNull(client.getConfig("payment", "prod", "future"));
         assertEquals(reads, server.reads.get());
         server.put("future", "one", "text", "created");
-        assertEquals("created", events.poll(5, TimeUnit.SECONDS).getType());
+        assertEquals(CONFIG_CHANGE_TYPE_CREATED, events.poll(5, TimeUnit.SECONDS).getType());
         assertEquals("one", client.getConfig("payment", "prod", "future").getValue());
         server.delete("future");
-        assertEquals("deleted", events.poll(5, TimeUnit.SECONDS).getType());
+        assertEquals(CONFIG_CHANGE_TYPE_DELETED, events.poll(5, TimeUnit.SECONDS).getType());
         assertNull(client.getConfig("payment", "prod", "future"));
         server.put("future", "two", "text", "restored");
-        assertEquals("restored", events.poll(5, TimeUnit.SECONDS).getType());
+        assertEquals(CONFIG_CHANGE_TYPE_RESTORED, events.poll(5, TimeUnit.SECONDS).getType());
         assertEquals("two", client.getConfig("payment", "prod", "future").getValue());
     }
 
@@ -115,7 +125,7 @@ class LongPollWatcherTest {
     @Test
     void environmentCacheIncludesFutureKeysAndReceivesBatches() throws Exception {
         BlockingQueue<List<ConfigChange>> batches = new LinkedBlockingQueue<>();
-        client.addListener("payment", "prod", batches::add);
+        client.addConfigListener("payment", "prod", batches::add);
         synchronized (server.monitor) {
             server.put("a", "1", "number", "created");
             server.put("b", "true", "boolean", "created");
@@ -140,7 +150,7 @@ class LongPollWatcherTest {
     void doesNotMissChangesBetweenInitializationAndFirstRead() throws Exception {
         BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
         server.afterInitialize = () -> server.put("application.yml", "during-init", "yaml", "updated");
-        client.addListener(changes::addAll);
+        client.addConfigListener(changes::addAll);
         assertEquals("during-init", client.getConfig("payment", "prod", "application.yml").getValue());
         assertNotNull(changes.poll(5, TimeUnit.SECONDS));
         assertTrue(server.requests.stream().anyMatch(r -> Long.valueOf(1).equals(r.revision)));
@@ -156,7 +166,7 @@ class LongPollWatcherTest {
         BlockingQueue<LessConfigException> errors = new LinkedBlockingQueue<>();
         BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
         AtomicReference<String> valueAtFailure = new AtomicReference<>();
-        client.addListener(changes::addAll);
+        client.addConfigListener(changes::addAll);
         client.addStatusListener((status, error) -> {
             if (error != null) {
                 valueAtFailure.set(client.getConfig("payment", "prod", "application.yml").getValue());
@@ -254,7 +264,7 @@ class LongPollWatcherTest {
     @Test
     void reinitializesExpandedScopesAndKeepsExistingListenerChanges() throws Exception {
         BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
-        client.addListener(changes::addAll);
+        client.addConfigListener(changes::addAll);
         client.getConfig("payment", "prod", "application.yml");
         server.put("second", "2", "number", "created");
         server.put("application.yml", "updated", "yaml", "updated");
@@ -273,18 +283,18 @@ class LongPollWatcherTest {
      * @throws Exception if fixture setup, HTTP I/O or bounded asynchronous waiting fails
      */
     @Test
-    @ResourceLock("com.lessconfig.DefaultLessConfigClient.logger")
+    @ResourceLock(Resources.SYSTEM_ERR)
     void listenerFailuresAndRemovalDoNotBreakOtherListeners() throws Exception {
         IllegalStateException failure = new IllegalStateException("test listener failure");
         try (ExpectedListenerLog logs = new ExpectedListenerLog(failure)) {
             AtomicInteger removedCalls = new AtomicInteger();
             BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
             ConfigListener removed = batch -> removedCalls.incrementAndGet();
-            client.addListener(batch -> {
+            client.addConfigListener(batch -> {
                 throw failure;
             });
-            client.addListener(changes::addAll);
-            client.addListener(removed);
+            client.addConfigListener(changes::addAll);
+            client.addConfigListener(removed);
             client.removeListener(removed);
             client.getConfig("payment", "prod", "application.yml");
             server.put("application.yml", "new", "yaml", "updated");
@@ -335,20 +345,23 @@ class LongPollWatcherTest {
     }
 
     /**
-     * Checks project deletion evicts descendant cache entries and preserves the nullable fields of the server deletion record.
+     * Checks ancestor deletion evicts cached configurations and preserves the server record's resource and nullable fields.
      *
+     * @param project true to delete the project, false to delete only the environment
      * @throws Exception if fixture setup, HTTP I/O or bounded asynchronous waiting fails
      */
-    @Test
-    void removesDeletedAncestorCacheAndDeliversItsRawRecord() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void removesDeletedAncestorCacheAndDeliversItsRawRecord(boolean project) throws Exception {
         BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
-        client.addListener("payment", "prod", "application.yml", changes::addAll);
+        client.addConfigListener("payment", "prod", "application.yml", changes::addAll);
         assertTrue(server.pollEntered.await(5, TimeUnit.SECONDS));
-        server.deleteAncestor(true);
+        server.deleteAncestor(project);
         ConfigChange change = changes.poll(5, TimeUnit.SECONDS);
         assertNotNull(change);
-        assertEquals("project", change.getResource());
-        assertNull(change.getEnvironment());
+        assertEquals(project ? CONFIG_CHANGE_RESOURCE_PROJECT : CONFIG_CHANGE_RESOURCE_ENVIRONMENT, change.getResource());
+        assertEquals(CONFIG_CHANGE_TYPE_DELETED, change.getType());
+        assertEquals(project ? null : "prod", change.getEnvironment());
         assertNull(change.getKey());
         assertNull(client.getConfig("payment", "prod", "application.yml"));
     }
@@ -425,7 +438,7 @@ class LongPollWatcherTest {
     @Test
     void listenerCanReadAnotherKeyAndCloseClient() throws Exception {
         CountDownLatch complete = new CountDownLatch(1);
-        client.addListener(changes -> {
+        client.addConfigListener(changes -> {
             client.getConfig("payment", "prod", "another");
             client.close();
             complete.countDown();

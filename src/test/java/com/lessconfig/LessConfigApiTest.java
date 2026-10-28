@@ -3,14 +3,26 @@ package com.lessconfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
+import java.util.stream.Stream;
 
+import static com.lessconfig.Config.CONFIG_TYPE_BOOLEAN;
+import static com.lessconfig.Config.CONFIG_TYPE_JSON;
+import static com.lessconfig.Config.CONFIG_TYPE_NUMBER;
+import static com.lessconfig.Config.CONFIG_TYPE_PROPERTIES;
+import static com.lessconfig.Config.CONFIG_TYPE_TEXT;
+import static com.lessconfig.Config.CONFIG_TYPE_YAML;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
  * Behavioral contract tests for the HTTP read API and cache boundaries.
@@ -45,8 +57,7 @@ class LessConfigApiTest {
             Config config = client.getConfig("payment", "prod", "application.yml");
             assertNotNull(config);
             assertEquals("# 原文\nport: 8080\n", config.getValue());
-            assertEquals(ConfigType.YAML, config.getType());
-            assertEquals("yaml", config.getRawType());
+            assertEquals(CONFIG_TYPE_YAML, config.getType());
             assertEquals(1L, config.getRevision());
             assertEquals("支付", client.getProject("payment").getName());
             assertEquals("p1", client.getEnvironment("payment", "prod").getProjectId());
@@ -67,8 +78,11 @@ class LessConfigApiTest {
         try (LessConfigClient client = server.client()) {
             client.getConfig("payment", "prod", "application.yml").setValue("corrupted");
             assertTrue(client.getConfig("payment", "prod", "application.yml").getValue().startsWith("# 原文"));
+            client.getConfig("payment", "prod", "application.yml").setType(CONFIG_TYPE_TEXT);
+            assertEquals(CONFIG_TYPE_YAML, client.getConfig("payment", "prod", "application.yml").getType());
             client.getConfigs("payment", "prod").get(0).setKey("corrupted");
             assertEquals("application.yml", client.getConfigs("payment", "prod").get(0).getKey());
+            assertEquals(CONFIG_TYPE_YAML, client.getConfigs("payment", "prod").get(0).getType());
             assertThrows(UnsupportedOperationException.class, () -> client.getConfigs("payment", "prod").clear());
         }
     }
@@ -93,15 +107,48 @@ class LessConfigApiTest {
     }
 
     /**
-     * Checks forward compatibility: a future server format retains its raw name and maps to UNKNOWN.
+     * Verifies actual server type names can be compared with public constants after decoding and caching.
+     *
+     * @param serverType literal type name sent by the server fixture
+     * @param expectedType public constant applications use to identify the format
      */
-    @Test
-    void preservesUnknownConfigTypesAsRawText() {
-        server.put("new-format", "raw", "toml", "created");
+    @ParameterizedTest
+    @MethodSource("configurationTypes")
+    void readsConfigurationTypesAsStringConstants(String serverType, String expectedType) {
+        server.put("typed", "raw", serverType, "created");
+        try (LessConfigClient client = server.client()) {
+            assertEquals(expectedType, client.getConfig("payment", "prod", "typed").getType());
+            assertEquals(expectedType, client.getConfig("payment", "prod", "typed").getType());
+        }
+    }
+
+    /**
+     * Pairs independent protocol literals with the corresponding SDK constants.
+     *
+     * @return the six supported configuration formats and their public constants
+     */
+    private static Stream<Arguments> configurationTypes() {
+        return Stream.of(
+                arguments("text", CONFIG_TYPE_TEXT),
+                arguments("boolean", CONFIG_TYPE_BOOLEAN),
+                arguments("number", CONFIG_TYPE_NUMBER),
+                arguments("json", CONFIG_TYPE_JSON),
+                arguments("yaml", CONFIG_TYPE_YAML),
+                arguments("properties", CONFIG_TYPE_PROPERTIES));
+    }
+
+    /**
+     * Checks forward compatibility: unfamiliar type names retain their original spelling and case.
+     *
+     * @param serverType unfamiliar format name supplied by the server
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"toml", "CustomFormat"})
+    void preservesUnknownTypeNames(String serverType) {
+        server.put("new-format", "raw", serverType, "created");
         try (LessConfigClient client = server.client()) {
             Config config = client.getConfig("payment", "prod", "new-format");
-            assertEquals(ConfigType.UNKNOWN, config.getType());
-            assertEquals("toml", config.getRawType());
+            assertEquals(serverType, config.getType());
         }
     }
 
