@@ -1,6 +1,7 @@
 package com.lessconfig;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -77,18 +78,22 @@ class StatusListenerTest {
 
     /**
      * Checks duplicate/removal semantics and isolates a throwing health observer from other observers.
+     * Expected exception logs are captured and asserted instead of being printed as apparent build failures.
      *
      * @throws Exception if fixture setup fails
      */
     @Test
+    @ResourceLock("com.lessconfig.DefaultLessConfigClient.logger")
     void isolatesFailuresAndRemovesStatusObservers() throws Exception {
-        try (TestServer server = new TestServer(); LessConfigClient client = server.client()) {
+        IllegalStateException failure = new IllegalStateException("test observer failure");
+        try (ExpectedListenerLog logs = new ExpectedListenerLog(failure);
+             TestServer server = new TestServer(); LessConfigClient client = server.client()) {
             List<WatchStatus> received = new CopyOnWriteArrayList<>();
             AtomicInteger removedCalls = new AtomicInteger();
             StatusListener removed = (status, error) -> removedCalls.incrementAndGet();
             StatusListener observer = (status, error) -> received.add(status);
             client.addStatusListener((status, error) -> {
-                throw new IllegalStateException("test observer failure");
+                throw failure;
             });
             client.addStatusListener(observer);
             client.addStatusListener(observer);
@@ -100,6 +105,8 @@ class StatusListenerTest {
             assertEquals(WatchStatus.WATCHING, received.get(0));
             assertEquals(WatchStatus.CLOSED, received.get(1));
             assertEquals(0, removedCalls.get());
+            logs.assertLogged("LessConfig status listener failed");
+            logs.assertLogged("LessConfig status listener failed");
         }
     }
 

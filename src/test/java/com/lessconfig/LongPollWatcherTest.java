@@ -3,6 +3,7 @@ package com.lessconfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -267,26 +268,34 @@ class LongPollWatcherTest {
 
     /**
      * Checks listener failures are isolated and removed listeners no longer receive subsequent batches.
+     * Each expected failure must still be logged, without printing its stack trace to the build console.
      *
      * @throws Exception if fixture setup, HTTP I/O or bounded asynchronous waiting fails
      */
     @Test
+    @ResourceLock("com.lessconfig.DefaultLessConfigClient.logger")
     void listenerFailuresAndRemovalDoNotBreakOtherListeners() throws Exception {
-        AtomicInteger removedCalls = new AtomicInteger();
-        BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
-        ConfigListener removed = batch -> removedCalls.incrementAndGet();
-        client.addListener(batch -> {
-            throw new IllegalStateException("test listener failure");
-        });
-        client.addListener(changes::addAll);
-        client.addListener(removed);
-        client.removeListener(removed);
-        client.getConfig("payment", "prod", "application.yml");
-        server.put("application.yml", "new", "yaml", "updated");
-        assertNotNull(changes.poll(5, TimeUnit.SECONDS));
-        assertEquals(0, removedCalls.get());
-        server.put("application.yml", "newer", "yaml", "updated");
-        await(() -> "newer".equals(client.getConfig("payment", "prod", "application.yml").getValue()));
+        IllegalStateException failure = new IllegalStateException("test listener failure");
+        try (ExpectedListenerLog logs = new ExpectedListenerLog(failure)) {
+            AtomicInteger removedCalls = new AtomicInteger();
+            BlockingQueue<ConfigChange> changes = new LinkedBlockingQueue<>();
+            ConfigListener removed = batch -> removedCalls.incrementAndGet();
+            client.addListener(batch -> {
+                throw failure;
+            });
+            client.addListener(changes::addAll);
+            client.addListener(removed);
+            client.removeListener(removed);
+            client.getConfig("payment", "prod", "application.yml");
+            server.put("application.yml", "new", "yaml", "updated");
+            assertNotNull(changes.poll(5, TimeUnit.SECONDS));
+            logs.assertLogged("LessConfig change listener failed");
+            assertEquals(0, removedCalls.get());
+            server.put("application.yml", "newer", "yaml", "updated");
+            assertNotNull(changes.poll(5, TimeUnit.SECONDS));
+            logs.assertLogged("LessConfig change listener failed");
+            assertEquals("newer", client.getConfig("payment", "prod", "application.yml").getValue());
+        }
     }
 
     /**
