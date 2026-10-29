@@ -6,20 +6,34 @@ import org.jspecify.annotations.Nullable;
  * Immutable server invalidation record; it contains no configuration values.
  */
 public final class ConfigChange {
-    /** Identifies a configuration resource in a change record. */
+    /**
+     * Identifies a configuration resource in a change record.
+     */
     public static final String CONFIG_CHANGE_RESOURCE_CONFIG = "config";
-    /** Identifies an environment resource in a change record. */
+    /**
+     * Identifies an environment resource in a change record.
+     */
     public static final String CONFIG_CHANGE_RESOURCE_ENVIRONMENT = "environment";
-    /** Identifies a project resource in a change record. */
+    /**
+     * Identifies a project resource in a change record.
+     */
     public static final String CONFIG_CHANGE_RESOURCE_PROJECT = "project";
 
-    /** Indicates that the resource was created. */
+    /**
+     * Indicates that the resource was created.
+     */
     public static final String CONFIG_CHANGE_TYPE_CREATED = "created";
-    /** Indicates that the resource was deleted. */
+    /**
+     * Indicates that the resource was deleted.
+     */
     public static final String CONFIG_CHANGE_TYPE_DELETED = "deleted";
-    /** Indicates that the resource was updated. */
+    /**
+     * Indicates that the resource was updated.
+     */
     public static final String CONFIG_CHANGE_TYPE_UPDATED = "updated";
-    /** Indicates that the resource was restored. */
+    /**
+     * Indicates that the resource was restored.
+     */
     public static final String CONFIG_CHANGE_TYPE_RESTORED = "restored";
 
     /**

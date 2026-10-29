@@ -68,12 +68,12 @@ final class TestServer implements AutoCloseable {
     }
 
     /**
-     * Returns the fixture API URL.
+     * Returns the fixture API root URL without a version.
      *
-     * @return complete local API base URL
+     * @return local API root URL; clients must append the operation's version
      */
     String endpoint() {
-        return "http://127.0.0.1:" + server.getAddress().getPort() + "/api/v1";
+        return "http://127.0.0.1:" + server.getAddress().getPort() + "/api";
     }
 
     /**
@@ -172,7 +172,7 @@ final class TestServer implements AutoCloseable {
             }
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
             if (response.status == 302) {
-                exchange.getResponseHeaders().set("Location", endpoint() + "/redirected");
+                exchange.getResponseHeaders().set("Location", endpoint() + "/v1/redirected");
             }
             byte[] bytes = response.body.getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(response.status, bytes.length == 0 ? -1 : bytes.length);

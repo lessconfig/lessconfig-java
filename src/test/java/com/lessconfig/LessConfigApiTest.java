@@ -9,6 +9,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static com.lessconfig.Config.CONFIG_TYPE_BOOLEAN;
@@ -17,6 +19,7 @@ import static com.lessconfig.Config.CONFIG_TYPE_NUMBER;
 import static com.lessconfig.Config.CONFIG_TYPE_PROPERTIES;
 import static com.lessconfig.Config.CONFIG_TYPE_TEXT;
 import static com.lessconfig.Config.CONFIG_TYPE_YAML;
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -46,6 +49,48 @@ class LessConfigApiTest {
     @AfterEach
     void teardown() {
         server.close();
+    }
+
+    /**
+     * Verifies every operation selects its version relative to the API root, including both watch request forms.
+     *
+     * @param trailingSlashes optional slashes supplied after the API root
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"", "/", "///"})
+    void usesVersionedRoutesWithAnUnversionedEndpoint(String trailingSlashes) {
+        Duration readTimeout = Duration.ofSeconds(3);
+        ConfigId id = new ConfigId("payment", "prod", "application.yml");
+        List<ConfigId> scopes = Arrays.asList(id, new ConfigId("payment", "prod", "database.properties"));
+        try (LessConfigApi api = new LessConfigApi(server.endpoint() + trailingSlashes, "test-token",
+                Duration.ofSeconds(1), readTimeout)) {
+            api.getProjects();
+            api.getProject("payment");
+            api.getEnvironments("payment");
+            api.getEnvironment("payment", "prod");
+            api.getConfigs("payment", "prod");
+            api.getConfig(id);
+            LessConfigApi.WatchResult initial = api.watch(scopes, null, Duration.ofSeconds(1), readTimeout);
+            server.put("database.properties", "port=5432", "properties", "created");
+            LessConfigApi.WatchResult updated = api.watch(scopes, initial.revision, Duration.ofSeconds(1), readTimeout);
+
+            assertEquals(Arrays.asList(
+                            "/api/v1/projects",
+                            "/api/v1/projects/payment",
+                            "/api/v1/projects/payment/environments",
+                            "/api/v1/projects/payment/environments/prod",
+                            "/api/v1/projects/payment/environments/prod/configurations",
+                            "/api/v1/projects/payment/environments/prod/configurations/application.yml",
+                            "/api/v1/watch", "/api/v1/watch"),
+                    server.requests.stream().map(request -> request.path).collect(toList()));
+            List<String> expectedScopes = Arrays.asList("payment/prod/application.yml", "payment/prod/database.properties");
+            assertEquals(expectedScopes, server.requests.get(6).scopes);
+            assertEquals(expectedScopes, server.requests.get(7).scopes);
+            assertNull(server.requests.get(6).revision);
+            assertEquals(Long.valueOf(initial.revision), server.requests.get(7).revision);
+            assertEquals(1, updated.changes.size());
+            assertEquals("database.properties", updated.changes.get(0).getKey());
+        }
     }
 
     /**
@@ -109,7 +154,7 @@ class LessConfigApiTest {
     /**
      * Verifies actual server type names can be compared with public constants after decoding and caching.
      *
-     * @param serverType literal type name sent by the server fixture
+     * @param serverType   literal type name sent by the server fixture
      * @param expectedType public constant applications use to identify the format
      */
     @ParameterizedTest

@@ -32,10 +32,11 @@ public class LessConfigClientBuilder {
     }
 
     /**
-     * Sets the complete HTTP(S) API base URL, including {@code /api/v1}.
+     * Sets the HTTP(S) API root URL, for example {@code https://example.com/api}.
+     * The SDK appends the version required by each API operation.
      * Trailing slashes are removed; URL credentials, query strings and fragments are rejected at build time.
      *
-     * @param endpoint required complete API base URL
+     * @param endpoint required API root URL without a version
      * @return this builder
      */
     public LessConfigClientBuilder endpoint(String endpoint) {

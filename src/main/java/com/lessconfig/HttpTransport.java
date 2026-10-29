@@ -28,7 +28,7 @@ final class HttpTransport implements AutoCloseable {
     /**
      * Creates a transport without opening a connection.
      *
-     * @param endpoint       complete HTTP(S) API URL
+     * @param endpoint       HTTP(S) API root URL without a version
      * @param token          nonempty Bearer credential
      * @param connectTimeout positive connection timeout
      * @throws IllegalArgumentException if endpoint or token is invalid
@@ -45,7 +45,7 @@ final class HttpTransport implements AutoCloseable {
     /**
      * Validates the endpoint and removes trailing slashes.
      *
-     * @param endpoint complete API URL
+     * @param endpoint API root URL without a version
      * @return normalized ASCII URL
      * @throws IllegalArgumentException if the URL is missing, malformed or contains credentials/query/fragment
      */
@@ -73,7 +73,7 @@ final class HttpTransport implements AutoCloseable {
     /**
      * Performs one authenticated GET and closes its stream/connection on every exit path.
      *
-     * @param path        validated relative API path including any encoded query
+     * @param path        validated path relative to the API root, including its version and any encoded query
      * @param readTimeout positive socket read timeout
      * @return decoded JSON response
      * @throws LessConfigException on HTTP, network, protocol or cancellation failure

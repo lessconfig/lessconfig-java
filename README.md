@@ -26,7 +26,7 @@ Add the dependency to your application:
 
 ## Quick Start
 
-Set `LESSCONFIG_ENDPOINT` to your API URL, including `/api/v1`, and `LESSCONFIG_TOKEN` to your API token. Replace the project, environment and configuration key below with your own values.
+Set `LESSCONFIG_ENDPOINT` to your API root URL, such as `https://example.com/api`, and `LESSCONFIG_TOKEN` to your API token. The SDK adds the API version. Replace the project, environment and configuration key below with your own values.
 
 ```java
 import com.lessconfig.Config;

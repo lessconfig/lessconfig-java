@@ -46,7 +46,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
     /**
      * Creates a client using the builder defaults without starting network activity.
      *
-     * @param endpoint complete HTTP(S) API base URL, including /api/v1
+     * @param endpoint HTTP(S) API root URL without a version, for example {@code https://example.com/api}
      * @param token    nonempty Bearer credential
      * @throws IllegalArgumentException if endpoint or token is invalid
      */
@@ -58,7 +58,7 @@ public class DefaultLessConfigClient implements LessConfigClient {
     /**
      * Creates a client from validated builder settings without starting work.
      *
-     * @param endpoint         complete API URL
+     * @param endpoint         API root URL without a version
      * @param token            Bearer credential
      * @param connectTimeout   connection establishment timeout
      * @param readTimeout      ordinary request read timeout

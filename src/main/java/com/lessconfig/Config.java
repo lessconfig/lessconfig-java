@@ -7,17 +7,29 @@ import java.util.Objects;
  * Client-returned instances are detached copies; changing an instance does not change the client's cache.
  */
 public class Config {
-    /** Configuration format for plain text. */
+    /**
+     * Configuration format for plain text.
+     */
     public static final String CONFIG_TYPE_TEXT = "text";
-    /** Configuration format for a boolean value. */
+    /**
+     * Configuration format for a boolean value.
+     */
     public static final String CONFIG_TYPE_BOOLEAN = "boolean";
-    /** Configuration format for a numeric value. */
+    /**
+     * Configuration format for a numeric value.
+     */
     public static final String CONFIG_TYPE_NUMBER = "number";
-    /** Configuration format for JSON content. */
+    /**
+     * Configuration format for JSON content.
+     */
     public static final String CONFIG_TYPE_JSON = "json";
-    /** Configuration format for YAML content. */
+    /**
+     * Configuration format for YAML content.
+     */
     public static final String CONFIG_TYPE_YAML = "yaml";
-    /** Configuration format for Java properties content. */
+    /**
+     * Configuration format for Java properties content.
+     */
     public static final String CONFIG_TYPE_PROPERTIES = "properties";
 
     /**

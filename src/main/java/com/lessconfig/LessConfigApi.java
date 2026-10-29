@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.function.Function;
 
 import static com.lessconfig.ConfigChange.CONFIG_CHANGE_RESOURCE_CONFIG;
@@ -27,13 +28,22 @@ import static com.lessconfig.ConfigChange.CONFIG_CHANGE_TYPE_UPDATED;
  * Maps the LessConfig API and validates responses before they can update the cache.
  */
 final class LessConfigApi implements AutoCloseable {
+    /**
+     * Versioned project collection path, relative to the configured API root.
+     */
+    private static final String V1_PROJECTS_PATH = "/v1/projects";
+    /**
+     * Versioned watch path, relative to the configured API root.
+     */
+    private static final String V1_WATCH_PATH = "/v1/watch";
+
     private final HttpTransport transport;
     private final Duration readTimeout;
 
     /**
      * Creates an independent HTTP API adapter.
      *
-     * @param endpoint       complete API base URL
+     * @param endpoint       API root URL without a version, for example {@code https://example.com/api}
      * @param token          Bearer credential
      * @param connectTimeout connection establishment timeout
      * @param readTimeout    ordinary request socket-read timeout
@@ -112,7 +122,7 @@ final class LessConfigApi implements AutoCloseable {
      * @throws LessConfigException if the request or response decoding fails
      */
     @NonNull List<Project> getProjects() {
-        return decode(() -> items(transport.get("/projects", readTimeout), LessConfigApi::project));
+        return decode(() -> items(transport.get(V1_PROJECTS_PATH, readTimeout), LessConfigApi::project));
     }
 
     /**
@@ -127,22 +137,19 @@ final class LessConfigApi implements AutoCloseable {
      * @throws LessConfigException on HTTP failure, malformed changes or a backward watermark
      */
     WatchResult watch(Collection<ConfigId> scopes, @Nullable Long revision, Duration timeout, Duration readTimeout) {
-        StringBuilder path = new StringBuilder("/watch?");
+        StringJoiner query = new StringJoiner("&");
         for (ConfigId scope : scopes) {
-            if (path.length() > 7) {
-                path.append('&');
-            }
             try {
-                path.append("scopes=").append(URLEncoder.encode(scope.scope(), "UTF-8"));
+                query.add("scopes=" + URLEncoder.encode(scope.scope(), "UTF-8"));
             } catch (UnsupportedEncodingException impossible) {
                 throw new AssertionError(impossible);
             }
         }
         if (revision != null) {
-            path.append("&revision=").append(revision).append("&timeout=").append(timeout.getSeconds());
+            query.add("revision=" + revision).add("timeout=" + timeout.getSeconds());
         }
         return decode(() -> {
-            JSONObject json = transport.get(path.toString(), readTimeout);
+            JSONObject json = transport.get(V1_WATCH_PATH + "?" + query, readTimeout);
             long next = revision(json);
             if (revision != null && next < revision) {
                 throw new JSONException("Watch revision moved backwards");
@@ -160,10 +167,10 @@ final class LessConfigApi implements AutoCloseable {
                 String key = entry.isNull("key") ? null : ConfigId.identifier(entry.getString("key"), "key");
                 if (eventRevision > next || (revision != null && eventRevision <= revision)
                         || !(CONFIG_CHANGE_RESOURCE_CONFIG.equals(resource)
-                            || CONFIG_CHANGE_RESOURCE_ENVIRONMENT.equals(resource)
-                            || CONFIG_CHANGE_RESOURCE_PROJECT.equals(resource))
+                        || CONFIG_CHANGE_RESOURCE_ENVIRONMENT.equals(resource)
+                        || CONFIG_CHANGE_RESOURCE_PROJECT.equals(resource))
                         || !(CONFIG_CHANGE_TYPE_CREATED.equals(type) || CONFIG_CHANGE_TYPE_UPDATED.equals(type)
-                            || CONFIG_CHANGE_TYPE_DELETED.equals(type) || CONFIG_CHANGE_TYPE_RESTORED.equals(type))
+                        || CONFIG_CHANGE_TYPE_DELETED.equals(type) || CONFIG_CHANGE_TYPE_RESTORED.equals(type))
                         || (CONFIG_CHANGE_RESOURCE_CONFIG.equals(resource) && (environment == null || key == null))
                         || (CONFIG_CHANGE_RESOURCE_ENVIRONMENT.equals(resource) && (environment == null || key != null))
                         || (CONFIG_CHANGE_RESOURCE_PROJECT.equals(resource) && (environment != null || key != null))) {
@@ -182,11 +189,11 @@ final class LessConfigApi implements AutoCloseable {
      * Builds the path for a validated project slug.
      *
      * @param project project slug
-     * @return relative API path
+     * @return versioned path relative to the API root
      * @throws IllegalArgumentException if the identifier is invalid
      */
     private static String projectPath(String project) {
-        return "/projects/" + ConfigId.identifier(project, "project");
+        return V1_PROJECTS_PATH + "/" + ConfigId.identifier(project, "project");
     }
 
     /**
@@ -194,7 +201,7 @@ final class LessConfigApi implements AutoCloseable {
      *
      * @param project     project slug
      * @param environment environment slug
-     * @return relative API path
+     * @return versioned path relative to the API root
      * @throws IllegalArgumentException if an identifier is invalid
      */
     private static String environmentPath(String project, String environment) {
